@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-# @Date    : 3/2/18
-# @Author  : zhangchaoyang
-
 class Singleton(type):
     def __init__(cls,   class_name,base_classes, attr_dict):
         cls.__instance = None

@@ -46,7 +46,6 @@ class Sample(object):
               node_list.append(FFM_Node(j, f, v))
           if square_sum > 0:
             norm = math.sqrt(square_sum)
-            # 把模长缩放到1
             normed_node_list = [FFM_Node(ele.j, ele.f, ele.v / norm) for ele in node_list]
             yield (normed_node_list, y)
 
@@ -57,12 +56,9 @@ if __name__ == '__main__':
 
   with localconverter(ro.default_converter + pandas2ri.converter):
     xstream = conversion.py2rpy(pd_df)
-
   x = ro.IntVector(range(1, len(pd_df) + 1))
   dr = ro.r["theta"](x, xstream)
-
   np_dr0 = np.array(dr[0])
-
 
   n = 61
   m = 6
@@ -71,9 +67,9 @@ if __name__ == '__main__':
   valid_file = "C:/Users/lihon/Desktop/paper/fairness-22/code/data/MC/ffm_validation.csv"
   model_file = "C:/Users/lihon/Desktop/paper/fairness-22/code/fair/ffm.npy"
 
-  eta = 0.01
-  lambd = 1e-2
-  max_echo = 60
+  eta = 0.0001
+  lambd = 1e-4
+  max_echo = 300
   max_r2 = 0.9
 
   sample_generator = Sample(train_file)
@@ -111,13 +107,12 @@ if __name__ == '__main__':
     else:
       if y == 1: FN += 1
       else: TN += 1
-
-  var_y = y_square_sum - y_sum * y_sum / population  # y的方差
-  r2 = 1 - err_square_sum / var_y
-  print("r2 on validation set is", r2)
-
   acc = (TP+TN)/(TP+TN+FP+FN)
-  print("accuracy on validation set is", acc)
+  print("accuracy is", acc)
+  for l in range(len(temp_d)):
+    temp_d[l] = (temp_d[l] - temp_d.min()) / (temp_d.max() - temp_d.min())
+  fair=(temp_d[0]+temp_d[1]+temp_d[2]+temp_d[3]+temp_d[4]+temp_d[5])/6
+  print("fairness is",fair)
 
 
 
