@@ -84,6 +84,13 @@ _CLASS_ORDER = [
     (-1.0, 0.0),  # y = -1, z = 0
 ]
 
+_BINARY_ORDER = [
+    (0, 0),
+    (0, 1),
+    (1, 0),
+    (1, 1),
+]
+
 
 def _to_pm_one(y: np.ndarray) -> np.ndarray:
     """Convert {0,1} labels to {-1, 1} as expected by Fair-Shift utils."""
@@ -117,6 +124,27 @@ def _ensure_no_zero_ratio(ratios: np.ndarray, name: str):
         )
 
 
+def _compute_binary_joint_ratios(
+    y: np.ndarray, a: np.ndarray
+) -> dict[tuple[int, int], float]:
+    total = len(y)
+    if total == 0:
+        raise ValueError("Input arrays must be non-empty")
+
+    ratios: dict[tuple[int, int], float] = {}
+    for combo in _BINARY_ORDER:
+        combo_count = np.sum((y == combo[0]) & (a == combo[1]))
+        ratios[combo] = combo_count / total
+    return ratios
+
+
+def _log_binary_ratios(title: str, ratios: dict[tuple[int, int], float]):
+    print(title)
+    for y_val, a_val in _BINARY_ORDER:
+        ratio = ratios.get((y_val, a_val), 0.0)
+        print(f"    (y={y_val}, A={a_val}) 比例: {ratio:.4f}")
+
+
 def align_train_with_target(
     X_train: np.ndarray,
     y_train: np.ndarray,
@@ -141,6 +169,11 @@ def align_train_with_target(
         np.random.seed(random_state)
 
     try:
+        y_train_arr = np.asarray(y_train).astype(int)
+        a_train_arr_binary = np.asarray(a_train).astype(int)
+        before_ratios = _compute_binary_joint_ratios(y_train_arr, a_train_arr_binary)
+        _log_binary_ratios("[FairShift] 预处理前训练集 (y, A) 分布:", before_ratios)
+
         y_train_pm = _to_pm_one(y_train)
         y_target_pm = _to_pm_one(y_target)
         a_train_arr = np.asarray(a_train).astype(float)
@@ -177,6 +210,9 @@ def align_train_with_target(
         X_resampled = x_tensor[indices].numpy()
         y_resampled = (y_tensor[indices].numpy() > 0).astype(int)
         a_resampled = z_tensor[indices].numpy().astype(int)
+
+        after_ratios = _compute_binary_joint_ratios(y_resampled, a_resampled)
+        _log_binary_ratios("[FairShift] 预处理后训练集 (y, A) 分布:", after_ratios)
 
         return X_resampled, y_resampled, a_resampled
     finally:

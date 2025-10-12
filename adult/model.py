@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
+
 class Net(nn.Module):
     def __init__(self, input_size):
         super(Net, self).__init__()
@@ -17,4 +18,3 @@ class Net(nn.Module):
         x = F.relu(x)
         x = self.fc3(x)
         return torch.sigmoid(x)
-
