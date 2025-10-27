@@ -11,7 +11,7 @@ from dataset import preprocess_adult_data
 from model import Net
 
 
-G = 100
+G = 100  # 默认的全局gamma采样次数（用于向后兼容）
 
 
 def train_base_model(X_train, y_train, input_size, num_epochs=100, batch_size=500):
@@ -78,7 +78,7 @@ def group_samples_by_sensitive_attribute_only(X_train, A_train, y_train):
     return groups
 
 
-def calculate_pair_fliprate(model, x1, x2, y1, y2, k=10):
+def calculate_pair_fliprate(model, x1, x2, y1, y2, k=10, gamma_samples=None):
     """
     计算一对样本的fliprate
 
@@ -86,11 +86,15 @@ def calculate_pair_fliprate(model, x1, x2, y1, y2, k=10):
         model: 训练好的基础模型
         x1, x2: 两个样本
         y1, y2: 对应的标签
-        k: gamma采样次数
+        k: gamma采样次数（已弃用，使用 gamma_samples）
+        gamma_samples: gamma采样次数（新参数，优先使用）
 
     Returns:
         fliprate: 预测值不等于原标签的比例
     """
+    # 优先使用 gamma_samples，如果未提供则使用 k
+    if gamma_samples is not None:
+        k = gamma_samples
     model.eval()
     flip_count = 0
 
@@ -121,7 +125,9 @@ def calculate_pair_fliprate(model, x1, x2, y1, y2, k=10):
     return flip_count / k
 
 
-def calculate_sample_fliprates_eo(model, groups, X_train, y_train, K=200):
+def calculate_sample_fliprates_eo(
+    model, groups, X_train, y_train, K=200, gamma_samples=10
+):
     """
     计算每个样本的平均fliprate (EO模式)
 
@@ -130,6 +136,7 @@ def calculate_sample_fliprates_eo(model, groups, X_train, y_train, K=200):
         groups: 按敏感属性和标签分组的样本
         X_train, y_train: 训练数据
         K: 每个样本选择的pair数量
+        gamma_samples: gamma采样次数
 
     Returns:
         sample_fliprates: dict, key为样本索引，value为该样本的平均fliprate
@@ -198,7 +205,9 @@ def calculate_sample_fliprates_eo(model, groups, X_train, y_train, K=200):
                 y2 = y_train[idx2]
 
                 # 计算这一对的fliprate
-                fliprate = calculate_pair_fliprate(model, x1, x2, y1, y2)
+                fliprate = calculate_pair_fliprate(
+                    model, x1, x2, y1, y2, gamma_samples=gamma_samples
+                )
 
                 # 将fliprate添加到idx1的记录中
                 sample_fliprates[idx1].append(fliprate)
@@ -254,7 +263,9 @@ def calculate_sample_fliprates_eo(model, groups, X_train, y_train, K=200):
     return avg_fliprates
 
 
-def calculate_pair_fliprate_batch(model, x1_batch, x2_batch, y1_batch, y2_batch, k=G):
+def calculate_pair_fliprate_batch(
+    model, x1_batch, x2_batch, y1_batch, y2_batch, k=G, gamma_samples=None
+):
     """
     批量计算多对样本的fliprate (优化版本)
 
@@ -262,11 +273,15 @@ def calculate_pair_fliprate_batch(model, x1_batch, x2_batch, y1_batch, y2_batch,
         model: 训练好的基础模型
         x1_batch, x2_batch: 样本批次 (batch_size, features)
         y1_batch, y2_batch: 对应的标签批次
-        k: gamma采样次数
+        k: gamma采样次数（已弃用，使用 gamma_samples）
+        gamma_samples: gamma采样次数（新参数，优先使用）
 
     Returns:
         fliprates: 每对样本的fliprate列表
     """
+    # 优先使用 gamma_samples，如果未提供则使用 k
+    if gamma_samples is not None:
+        k = gamma_samples
     model.eval()
     batch_size = x1_batch.shape[0]
     flip_counts = torch.zeros(batch_size, device=x1_batch.device)
@@ -298,7 +313,7 @@ def calculate_pair_fliprate_batch(model, x1_batch, x2_batch, y1_batch, y2_batch,
 
 
 def calculate_sample_fliprates_eo_optimized(
-    model, groups, X_train, y_train, K=200, batch_size=32
+    model, groups, X_train, y_train, K=200, batch_size=32, gamma_samples=10
 ):
     """
     计算每个样本的平均fliprate (EO模式 - 优化版本)
@@ -309,6 +324,7 @@ def calculate_sample_fliprates_eo_optimized(
         X_train, y_train: 训练数据
         K: 每个样本选择的pair数量
         batch_size: 批处理大小
+        gamma_samples: gamma采样次数
 
     Returns:
         sample_fliprates: dict, key为样本索引，value为该样本的平均fliprate
@@ -389,7 +405,12 @@ def calculate_sample_fliprates_eo_optimized(
 
                 # 批量计算fliprate
                 fliprates = calculate_pair_fliprate_batch(
-                    model, x1_batch, x2_batch, y1_batch, y2_batch
+                    model,
+                    x1_batch,
+                    x2_batch,
+                    y1_batch,
+                    y2_batch,
+                    gamma_samples=gamma_samples,
                 )
 
                 # 将结果分配给对应的样本
@@ -432,7 +453,9 @@ def calculate_sample_fliprates_eo_optimized(
     return avg_fliprates
 
 
-def calculate_sample_fliprates_dp(model, groups, X_train, y_train, K=2000):
+def calculate_sample_fliprates_dp(
+    model, groups, X_train, y_train, K=2000, gamma_samples=10
+):
     """
     计算每个样本的平均fliprate (DP模式)
 
@@ -441,6 +464,7 @@ def calculate_sample_fliprates_dp(model, groups, X_train, y_train, K=2000):
         groups: 只按敏感属性分组的样本
         X_train, y_train: 训练数据
         K: 每个样本选择的pair数量
+        gamma_samples: gamma采样次数
 
     Returns:
         sample_fliprates: dict, key为样本索引，value为该样本的平均fliprate
@@ -492,7 +516,9 @@ def calculate_sample_fliprates_dp(model, groups, X_train, y_train, K=2000):
                 y2 = y_train[idx2]
 
                 # 计算这一对的fliprate
-                fliprate = calculate_pair_fliprate(model, x1, x2, y1, y2)
+                fliprate = calculate_pair_fliprate(
+                    model, x1, x2, y1, y2, gamma_samples=gamma_samples
+                )
 
                 # 将fliprate添加到idx1的记录中
                 sample_fliprates[idx1].append(fliprate)
@@ -509,7 +535,15 @@ def calculate_sample_fliprates_dp(model, groups, X_train, y_train, K=2000):
 
 
 def calculate_sample_fliprates(
-    model, groups, X_train, y_train, K=200, mode="eo", optimized=True, batch_size=32
+    model,
+    groups,
+    X_train,
+    y_train,
+    K=200,
+    mode="eo",
+    optimized=True,
+    batch_size=32,
+    gamma_samples=10,
 ):
     """
     计算每个样本的平均fliprate (统一接口)
@@ -522,6 +556,7 @@ def calculate_sample_fliprates(
         mode: 'eo' 或 'dp'
         optimized: 是否使用优化版本 (仅支持EO模式)
         batch_size: 批处理大小 (仅优化版本使用)
+        gamma_samples: gamma采样次数
 
     Returns:
         sample_fliprates: dict, key为样本索引，value为该样本的平均fliprate
@@ -529,12 +564,16 @@ def calculate_sample_fliprates(
     if mode == "eo":
         if optimized:
             return calculate_sample_fliprates_eo_optimized(
-                model, groups, X_train, y_train, K, batch_size
+                model, groups, X_train, y_train, K, batch_size, gamma_samples
             )
         else:
-            return calculate_sample_fliprates_eo(model, groups, X_train, y_train, K)
+            return calculate_sample_fliprates_eo(
+                model, groups, X_train, y_train, K, gamma_samples
+            )
     elif mode == "dp":
-        return calculate_sample_fliprates_dp(model, groups, X_train, y_train, K)
+        return calculate_sample_fliprates_dp(
+            model, groups, X_train, y_train, K, gamma_samples
+        )
     else:
         raise ValueError(f"Unsupported mode: {mode}. Use 'eo' or 'dp'.")
 
@@ -563,7 +602,8 @@ def save_all_sample_data(
 
 
 def load_and_select_high_impact_samples(
-    filepath="adult/all_sample_data.pkl", top_k=1000
+    filepath,
+    top_k=1000,
 ):
     """
     从文件加载所有样本数据，并选择top_k个高影响样本
@@ -648,15 +688,13 @@ def preprocess_high_impact_samples(
     seed=0,
     top_k=1000,
     force_recompute=False,
-    K=200,
-    mode="eo",
-    optimized=True,
-    batch_size=32,
     dataset="adult",
-    synthetic2_test_k=1,
+    mode="dp",
+    synthetic_test_k=1,
     apply_fairshift=False,
     high_impact_strategy="default",
-    align_seed=None,
+    K=200,
+    gamma_samples=10,
 ):
     """
     完整的高影响样本预处理流程
@@ -665,29 +703,36 @@ def preprocess_high_impact_samples(
         seed: 随机种子
         top_k: 选择的高影响样本数量
         force_recompute: 是否强制重新计算（忽略已保存的结果）
-        K: 每个样本选择的pair数量
+        dataset: 数据集名称 ('adult', 'interpolation', 'synthetic')
         mode: 'eo' (Equalized Opportunity) 或 'dp' (Demographic Parity)
-        dataset: 数据集名称 ('adult', 'interpolation')
+        synthetic_test_k: synthetic数据集的k值
+        apply_fairshift: 是否应用fairshift预处理
+        high_impact_strategy: 高影响样本策略
+        K: 每个样本选择的pair数量
+        gamma_samples: gamma采样次数
 
     Returns:
         high_impact_data: 高影响样本数据
     """
-    synthetic2_suffix = ""
-    if dataset == "synthetic2":
-        k_value = float(synthetic2_test_k)
+    synthetic_suffix = ""
+    if dataset == "synthetic":
+        k_value = float(synthetic_test_k)
         k_formatted = (
             f"{k_value:.2f}"
             if not np.isclose(k_value, round(k_value))
             else str(int(round(k_value)))
         )
         k_formatted = k_formatted.rstrip("0").rstrip(".")
-        synthetic2_suffix = f"_k{k_formatted}"
+        synthetic_suffix = f"_k{k_formatted}"
 
     strategy_suffix = (
         f"_{high_impact_strategy}" if high_impact_strategy != "default" else ""
     )
 
-    data_filepath = f"adult/all_sample_data_seed{seed}_{mode}_{dataset}{synthetic2_suffix}{strategy_suffix}.pkl"
+    # 包含 K 和 gamma_samples 参数以避免不同超参组合共享缓存
+    hyperparam_suffix = f"_K{K}_g{gamma_samples}"
+
+    data_filepath = f"adult/all_sample_data_seed{seed}_{mode}_{dataset}{synthetic_suffix}{strategy_suffix}{hyperparam_suffix}.pkl"
 
     # 检查是否已经存在计算结果
     if not force_recompute:
@@ -715,13 +760,13 @@ def preprocess_high_impact_samples(
         X_train, X_val, X_test, y_train, y_val, y_test, A_train, A_val, A_test = (
             preprocess_interpolation_data(seed=seed)
         )
-    elif dataset == "synthetic2":
-        from dataset import preprocess_synthetic2_data
+    elif dataset == "synthetic":
+        from dataset import preprocess_synthetic_data
 
         X_train, X_val, X_test, y_train, y_val, y_test, A_train, A_val, A_test = (
-            preprocess_synthetic2_data(
+            preprocess_synthetic_data(
                 seed=seed,
-                test_k=synthetic2_test_k,
+                test_k=synthetic_test_k,
             )
         )
     else:
@@ -763,10 +808,16 @@ def preprocess_high_impact_samples(
 
     # 4. 计算每个样本的fliprate
     print(
-        f"Calculating fliprates with K={K} pairs per sample in {mode.upper()} mode..."
+        f"Calculating fliprates with K={K} pairs per sample, gamma_samples={gamma_samples} in {mode.upper()} mode..."
     )
     sample_fliprates = calculate_sample_fliprates(
-        base_model, groups, X_train, y_train, K=K, mode=mode
+        base_model,
+        groups,
+        X_train,
+        y_train,
+        K=K,
+        mode=mode,
+        gamma_samples=gamma_samples,
     )
 
     # 5. 保存所有样本数据

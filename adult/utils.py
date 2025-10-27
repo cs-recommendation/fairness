@@ -201,7 +201,7 @@ def train_dp(
     seed=0,
     dataset="adult",
     mode="dp",
-    synthetic2_test_k=1,
+    test_k=1,
     high_impact_strategy="default",
 ):
     model.train()
@@ -210,8 +210,8 @@ def train_dp(
     high_impact_data = None
     if use_high_impact:
         suffix = ""
-        if dataset == "synthetic2":
-            k_value = float(synthetic2_test_k)
+        if dataset == "synthetic":
+            k_value = float(test_k)
             k_formatted = f"{k_value:.2f}"
             k_formatted = k_formatted.rstrip("0").rstrip(".")
             suffix = f"_k{k_formatted}"
@@ -324,8 +324,9 @@ def train_eo(
     seed=0,
     dataset="adult",
     mode="eo",
-    synthetic2_test_k=1,
+    test_k=1,
     high_impact_strategy="default",
+    verbose=False,
 ):
     model.train()
 
@@ -333,8 +334,8 @@ def train_eo(
     high_impact_data = None
     if use_high_impact:
         suffix = ""
-        if dataset == "synthetic2":
-            k_value = float(synthetic2_test_k)
+        if dataset == "synthetic":
+            k_value = float(test_k)
             k_formatted = f"{k_value:.2f}"
             k_formatted = k_formatted.rstrip("0").rstrip(".")
             suffix = f"_k{k_formatted}"
@@ -440,6 +441,18 @@ def train_eo(
         loss.backward()
         optimizer.step()
 
+        if verbose:
+            loss_sup_val = loss_sup.detach().item()
+            loss_total_val = loss.detach().item()
+            if torch.is_tensor(loss_reg):
+                loss_reg_val = loss_reg.detach().item()
+            else:
+                loss_reg_val = float(loss_reg)
+            print(
+                f"[train_eo][{it + 1}/{niter}] loss_sup={loss_sup_val:.6f} "
+                f"loss_reg={loss_reg_val:.6f} total_loss={loss_total_val:.6f}"
+            )
+
 
 def evaluate_dp(model, X_test, y_test, A_test):
     model.eval()
@@ -473,6 +486,9 @@ def evaluate_eo(model, X_test, y_test, A_test):
     eo_gap = equalized_odds_difference(
         y_true=y_test, y_pred=y_pred_bin, sensitive_features=A_test
     )
+    eo_gap_mean = equalized_odds_difference(
+        y_true=y_test, y_pred=y_pred_bin, sensitive_features=A_test, agg="mean"
+    )
     ap = average_precision_score(y_test, y_pred_probs)
 
     my_metrics = {
@@ -485,7 +501,7 @@ def evaluate_eo(model, X_test, y_test, A_test):
     mf = MetricFrame(
         metrics=my_metrics, y_true=y_test, y_pred=y_pred_bin, sensitive_features=A_test
     )
-    return ap, abs(eo_gap), mf
+    return ap, abs(eo_gap), mf, eo_gap_mean
 
 
 # def evaluate_dp(model, X_test, y_test, A_test):

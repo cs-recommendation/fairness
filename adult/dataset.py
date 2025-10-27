@@ -325,79 +325,9 @@ def preprocess_adult_data(seed=0):
     return X_train, X_val, X_test, y_train, y_val, y_test, A_train, A_val, A_test
 
 
-def preprocess_synthetic_data(seed=0):
+def preprocess_synthetic_data(seed=0, test_k=1):
     """
-    Description: Preprocess the synthetic data for GapReg/DP/EO pipelines
-    Returns:
-        X_train, X_val, X_test, y_train, y_val, y_test, A_train, A_val, A_test
-    Notes:
-        - Features X only contain non-sensitive attributes (x1, x2)
-        - Sensitive attribute A is z (binary 0/1)
-        - Paths are relative to the adult/ working directory
-    """
-    # Load raw arrays (xz contains [x1, x2, z])
-    xz_train = np.load("../synthetic/xz_train.npy")
-    y_train = np.load("../synthetic/y_train.npy")
-    z_train = np.load("../synthetic/z_train.npy")
-
-    xz_test = np.load("../synthetic/xz_test.npy")
-    y_test = np.load("../synthetic/y_test.npy")
-    z_test = np.load("../synthetic/z_test.npy")
-
-    # Split features and sensitive attribute
-    X_train = xz_train[:, :2]
-    X_test = xz_test[:, :2]
-
-    # Ensure labels are in {0,1}
-    y_train = y_train.astype(np.float32).ravel()
-    y_test = y_test.astype(np.float32).ravel()
-    if (y_train.min() < 0) or (y_train.max() > 1):
-        y_train = (y_train > 0).astype(np.float32)
-    if (y_test.min() < 0) or (y_test.max() > 1):
-        y_test = (y_test > 0).astype(np.float32)
-
-    # Ensure sensitive attribute is in {0,1}
-    A_train = z_train.reshape(-1)
-    A_test = z_test.reshape(-1)
-    if (A_train.min() < 0) or (A_train.max() > 1):
-        A_train = (A_train > 0).astype(np.int32)
-    else:
-        A_train = A_train.astype(np.int32)
-    if (A_test.min() < 0) or (A_test.max() > 1):
-        A_test = (A_test > 0).astype(np.int32)
-    else:
-        A_test = A_test.astype(np.int32)
-
-    # Create a reasonable validation set from training (up to 20% of train and not exceeding test size)
-    np.random.seed(seed)
-    val_size = max(1, int(0.2 * len(X_train)))
-    val_size = min(val_size, len(X_test))
-    # ensure at least one sample remains for training
-    if val_size >= len(X_train):
-        val_size = max(1, len(X_train) - 1)
-    val_indices = np.random.choice(len(X_train), val_size, replace=False)
-    train_indices = np.setdiff1d(np.arange(len(X_train)), val_indices)
-
-    X_val = X_train[val_indices]
-    y_val = y_train[val_indices]
-    A_val = A_train[val_indices]
-
-    X_train = X_train[train_indices]
-    y_train = y_train[train_indices]
-    A_train = A_train[train_indices]
-
-    # Standardize non-sensitive features
-    SS = StandardScaler().fit(X_train)
-    X_train = SS.transform(X_train)
-    X_val = SS.transform(X_val)
-    X_test = SS.transform(X_test)
-
-    return X_train, X_val, X_test, y_train, y_val, y_test, A_train, A_val, A_test
-
-
-def preprocess_synthetic2_data(seed=0, test_k=1):
-    """
-    读取 synthetic2 数据集（CSV），训练集固定为 multi_train_k4.csv，测试集可在 multi_test_kX.csv 中选择其一。
+    读取 synthetic 数据集（CSV），训练集固定为 multi_train_k4.csv，测试集可在 multi_test_kX.csv 中选择其一。
     支持的测试集编号 X 包括 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4。
 
     Args:
@@ -428,9 +358,9 @@ def preprocess_synthetic2_data(seed=0, test_k=1):
     else:
         test_k_suffix = f"{test_k_value}".rstrip("0").rstrip(".")
 
-    train_csv = os.path.join("synthetic2", "multi_train_k4.csv")
-    # train_csv = os.path.join("synthetic2", "multi_train_k1.csv")
-    test_csv = os.path.join("synthetic2", f"multi_test_k{test_k_suffix}.csv")
+    train_csv = os.path.join("synthetic", "multi_train_k4.csv")
+    # train_csv = os.path.join("synthetic", "multi_train_k1.csv")
+    test_csv = os.path.join("synthetic", f"multi_test_k{test_k_suffix}.csv")
 
     # 加载 CSV
     train_df = pd.read_csv(train_csv)

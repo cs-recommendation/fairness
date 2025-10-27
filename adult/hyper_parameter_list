@@ -1,0 +1,48 @@
+method,param_name,param_type,default_value,search_space,search_step
+erm,lr,float,0.001,"[0.001]",0.0001
+erm,batch_size,int,500,"[500]",100
+erm,niter,int,100,"[100]",10
+erm,eval_epochs,int,10,"[10]",1
+erm,skip_initial_epochs,int,1,"[1]",1
+mixup,lam,float,0.5,"[0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]",0.01
+mixup,lr,float,0.001,"[0.001]",0.0001
+mixup,batch_size,int,500,"[500]",100
+mixup,niter,int,100,"[100]",10
+mixup,eval_epochs,int,10,"[10]",1
+mixup,skip_initial_epochs,int,1,"[1]",1
+GapReg,lam,float,0.5,"[0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 1]",0.01
+GapReg,lr,float,0.001,"[0.001]",0.0001
+GapReg,batch_size,int,500,"[500]",100
+GapReg,niter,int,100,"[100]",10
+GapReg,eval_epochs,int,10,"[10]",1
+GapReg,skip_initial_epochs,int,1,"[1]",1
+fliprate,lam,float,0.5,"[0.01, 0.05, 0.1, 0.3, 0.5]",0.01
+fliprate,lr,float,0.001,"[0.001]",0.0001
+fliprate,batch_size,int,500,"[500]",100
+fliprate,niter,int,100,"[100]",10
+fliprate,eval_epochs,int,10,"[10]",1
+fliprate,skip_initial_epochs,int,1,"[1]",1
+fliprate,high_impact_ratio,float,0.2,"[0.2, 0.3, 0.4, 0.5]",0.05
+fliprate,pair_count_K,int,200,"[50,100,150,200,250]",50
+fliprate,gamma_samples,int,10,"[5,10,15,20,25]",5
+fliprate-fairshift,lam,float,0.5,"[0.01, 0.05, 0.1, 0.3, 0.5]",0.01
+fliprate-fairshift,lr,float,0.001,"[0.001]",0.0001
+fliprate-fairshift,batch_size,int,500,"[500]",100
+fliprate-fairshift,niter,int,100,"[100]",10
+fliprate-fairshift,eval_epochs,int,10,"[10]",1
+fliprate-fairshift,skip_initial_epochs,int,1,"[1]",1
+fliprate-fairshift,high_impact_ratio,float,0.2,"[0.2]",0.05
+fliprate-fairshift,pair_count_K,int,200,"[200]",50
+fliprate-fairshift,gamma_samples,int,10,"[10]",5
+adversarial,lam,float,0.5,"[0.01, 0.05, 0.1, 0.3, 0.5]",0.01
+adversarial,lr,float,0.001,"[0.001]",0.0001
+adversarial,batch_size,int,256,"[256]",64
+adversarial,num_epochs,int,10,"[10]",1
+reweight,lr,float,0.001,"[0.001]",0.0001
+reweight,batch_size,int,500,"[500]",100
+reweight,niter,int,100,"[100]",10
+reweight,eval_epochs,int,10,"[10]",1
+reweight,skip_initial_epochs,int,1,"[1]",1
+reweight,alpha,float,0.1,"[0.01,  0.03, 0.05,  0.07,  0.09, 0.1, 0.11, 0.13,  0.15]",0.01
+reweight,beta,float,1.0,"[0,  0.2, 0.4,  0.6,  0.8, 0.9]",0.1
+reweight,gamma,float,1.0,"[0, 0.1, 0.2, 0.3, 0.4]",0.1

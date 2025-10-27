@@ -1,7 +1,16 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable
+
+
+class LogisticRegression(nn.Module):
+    def __init__(self, input_size):
+        super(LogisticRegression, self).__init__()
+        self.linear = nn.Linear(input_size, 1)
+
+    def forward(self, x):
+        x = self.linear(x)
+        return torch.sigmoid(x)
 
 
 class Net(nn.Module):
@@ -18,3 +27,12 @@ class Net(nn.Module):
         x = F.relu(x)
         x = self.fc3(x)
         return torch.sigmoid(x)
+
+
+def build_model(model_arch, input_size):
+    model_arch = model_arch.lower()
+    if model_arch in {"mlp", "net"}:
+        return Net(input_size)
+    if model_arch in {"logistic", "logreg", "lr"}:
+        return LogisticRegression(input_size)
+    raise ValueError(f"Unsupported model architecture: {model_arch}")
