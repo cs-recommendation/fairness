@@ -218,7 +218,7 @@ def train_dp(
         strategy_suffix = (
             f"_{high_impact_strategy}" if high_impact_strategy != "default" else ""
         )
-        data_filepath = f"adult/all_sample_data_seed{seed}_{mode}_{dataset}{suffix}{strategy_suffix}.pkl"
+        data_filepath = f"Adult/all_sample_data_seed{seed}_{mode}_{dataset}{suffix}{strategy_suffix}.pkl"
         high_impact_data = load_and_select_high_impact_samples(
             data_filepath, top_k=1000
         )
@@ -342,7 +342,7 @@ def train_eo(
         strategy_suffix = (
             f"_{high_impact_strategy}" if high_impact_strategy != "default" else ""
         )
-        data_filepath = f"adult/all_sample_data_seed{seed}_{mode}_{dataset}{suffix}{strategy_suffix}.pkl"
+        data_filepath = f"Adult/all_sample_data_seed{seed}_{mode}_{dataset}{suffix}{strategy_suffix}.pkl"
         high_impact_data = load_and_select_high_impact_samples(
             data_filepath, top_k=1000
         )

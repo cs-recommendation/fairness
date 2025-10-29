@@ -16,15 +16,15 @@ GapReg,batch_size,int,500,"[500]",100
 GapReg,niter,int,100,"[100]",10
 GapReg,eval_epochs,int,10,"[10]",1
 GapReg,skip_initial_epochs,int,1,"[1]",1
-fliprate,lam,float,0.5,"[0.01, 0.05, 0.1, 0.3, 0.5]",0.01
+fliprate,lam,float,0.01,"[0.01]",0.01
 fliprate,lr,float,0.001,"[0.001]",0.0001
 fliprate,batch_size,int,500,"[500]",100
 fliprate,niter,int,100,"[100]",10
 fliprate,eval_epochs,int,10,"[10]",1
 fliprate,skip_initial_epochs,int,1,"[1]",1
-fliprate,high_impact_ratio,float,0.2,"[0.2, 0.3, 0.4, 0.5]",0.05
-fliprate,pair_count_K,int,200,"[50,100,150,200,250]",50
-fliprate,gamma_samples,int,10,"[5,10,15,20,25]",5
+fliprate,high_impact_ratio,float,0.5,"[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]",0.05
+fliprate,pair_count_K,int,250,"[250]",50
+fliprate,gamma_samples,int,10,"[10]",5
 fliprate-fairshift,lam,float,0.5,"[0.01, 0.05, 0.1, 0.3, 0.5]",0.01
 fliprate-fairshift,lr,float,0.001,"[0.001]",0.0001
 fliprate-fairshift,batch_size,int,500,"[500]",100

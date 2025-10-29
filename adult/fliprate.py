@@ -579,7 +579,7 @@ def calculate_sample_fliprates(
 
 
 def save_all_sample_data(
-    sample_fliprates, X_train, y_train, A_train, filepath="adult/all_sample_data.pkl"
+    sample_fliprates, X_train, y_train, A_train, filepath="all_sample_data.pkl"
 ):
     """
     保存所有样本的数据和fliprate
@@ -613,13 +613,22 @@ def load_and_select_high_impact_samples(
         top_k: 选择的高影响样本数量
 
     Returns:
-        high_impact_data: 高影响样本数据，如果文件不存在返回None
+        high_impact_data: 高影响样本数据，如果文件不存在或损坏返回None
     """
     if not os.path.exists(filepath):
         return None
 
-    with open(filepath, "rb") as f:
-        all_data = pickle.load(f)
+    try:
+        with open(filepath, "rb") as f:
+            all_data = pickle.load(f)
+    except (EOFError, pickle.UnpicklingError, Exception) as e:
+        print(f"警告: 文件 {filepath} 损坏或读取失败: {e}")
+        print(f"删除损坏的文件并将重新计算...")
+        try:
+            os.remove(filepath)
+        except:
+            pass
+        return None
 
     sample_fliprates = all_data["sample_fliprates"]
     X_train = all_data["X_train"]
@@ -660,7 +669,7 @@ def ensure_high_impact_feature_dim(high_impact_data, expected_dim):
     return high_impact_data
 
 
-def load_high_impact_samples(filepath="adult/high_impact_samples.pkl", top_k=1000):
+def load_high_impact_samples(filepath="high_impact_samples.pkl", top_k=1000):
     """
     从文件加载高影响样本（兼容旧接口）
 
@@ -677,7 +686,7 @@ def load_high_impact_samples(filepath="adult/high_impact_samples.pkl", top_k=100
         parts = filepath.split("_")
         seed_part = [p for p in parts if p.startswith("seed")][0]
         seed = seed_part.replace("seed", "").replace(".pkl", "")
-        new_filepath = f"adult/all_sample_data_seed{seed}.pkl"
+        new_filepath = f"all_sample_data_seed{seed}.pkl"
     else:
         new_filepath = filepath.replace("high_impact_samples", "all_sample_data")
 
@@ -732,7 +741,7 @@ def preprocess_high_impact_samples(
     # 包含 K 和 gamma_samples 参数以避免不同超参组合共享缓存
     hyperparam_suffix = f"_K{K}_g{gamma_samples}"
 
-    data_filepath = f"adult/all_sample_data_seed{seed}_{mode}_{dataset}{synthetic_suffix}{strategy_suffix}{hyperparam_suffix}.pkl"
+    data_filepath = f"Adult/all_sample_data_seed{seed}_{mode}_{dataset}{synthetic_suffix}{strategy_suffix}{hyperparam_suffix}.pkl"
 
     # 检查是否已经存在计算结果
     if not force_recompute:
@@ -822,6 +831,8 @@ def preprocess_high_impact_samples(
 
     # 5. 保存所有样本数据
     print("Saving all sample data...")
+    # 确保目录存在
+    os.makedirs(os.path.dirname(data_filepath), exist_ok=True)
     save_all_sample_data(sample_fliprates, X_train, y_train, A_train, data_filepath)
 
     # 6. 选择并返回高影响样本

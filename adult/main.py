@@ -881,8 +881,8 @@ if __name__ == "__main__":
         default=None,
         help="多个训练方法列表，例如: --methods erm mixup GapReg",
     )
-    parser.add_argument("--mode", default="dp", type=str, help="公平性模式: dp/eo")
-    parser.add_argument("--num_exp", default=1, type=int, help="实验重复次数，默认5次")
+    parser.add_argument("--mode", default="eo", type=str, help="公平性模式: dp/eo")
+    parser.add_argument("--num_exp", default=10, type=int, help="实验重复次数，默认10次")
     parser.add_argument(
         "--dataset",
         default=None,
@@ -1011,3 +1011,66 @@ if __name__ == "__main__":
             hp_selection_metric=args.hp_selection_metric,
         )
         _summarize_hp_search(experiment_summary, args.hp_selection_metric)
+        
+        # 保存结果到CSV文件
+        method = methods_list[0]
+        display_preprocess = preprocess_list[0] if preprocess_list[0] else "无"
+        results = []
+        
+        for summary in experiment_summary.get("results", []):
+            row = {
+                "method": summary.get("method", method),
+                "mode": args.mode,
+                "hp_repr": _format_hp(summary.get("hp")),
+                "num_exp": args.num_exp,
+                "dataset": summary.get("dataset"),
+                "synthetic_test_k": summary.get("synthetic_test_k"),
+                "pre_process": display_preprocess,
+                "ap_mean": summary.get("ap_mean"),
+                "gap_mean": summary.get("gap_mean"),
+                "ap_std": summary.get("ap_std"),
+                "gap_std": summary.get("gap_std"),
+                "hp_selection_metric": args.hp_selection_metric,
+            }
+            if "mf_by_group_mean" in summary:
+                row["mf_by_group_mean"] = summary["mf_by_group_mean"]
+            results.append(row)
+        
+        if results:
+            df = pd.DataFrame(results)
+            
+            # 根据数据列动态决定排序列
+            sort_cols = []
+            if "pre_process" in df.columns:
+                sort_cols.append("pre_process")
+            if "dataset" in df.columns:
+                sort_cols.append("dataset")
+            if "synthetic_test_k" in df.columns:
+                sort_cols.append("synthetic_test_k")
+            if "method" in df.columns:
+                sort_cols.append("method")
+            if "hp_repr" in df.columns:
+                sort_cols.append("hp_repr")
+            
+            if sort_cols:
+                df.sort_values(sort_cols, inplace=True)
+            
+            # 自动生成文件名（如果未指定）
+            if args.output_csv is None:
+                output_filename = _generate_result_filename(
+                    methods=methods_list,
+                    mode=args.mode,
+                    datasets=datasets_list,
+                    preprocess_list=preprocess_list,
+                    search_hp=args.search_hp,
+                )
+                output_path = Path("adult/results") / output_filename
+            else:
+                output_path = Path(args.output_csv)
+            
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            df.to_csv(output_path, index=False)
+            
+            print(f"\n{'='*80}")
+            print(f"结果已保存到: {output_path}")
+            print(f"{'='*80}\n")
