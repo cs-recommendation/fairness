@@ -619,6 +619,8 @@ def _run_single_experiment(
                     mode=mode,
                     test_k=synthetic_test_k,
                     high_impact_strategy="fairshift" if apply_fairshift else "default",
+                    pair_count_K=pair_count_K,
+                    gamma_samples=gamma_samples,
                 )
                 ap_val, gap_val = evaluate_dp(model, X_val, y_val, A_val)
                 ap_test, gap_test = evaluate_dp(model, X_test, y_test, A_test)
@@ -639,6 +641,8 @@ def _run_single_experiment(
                         "high_impact_ratio", high_impact_ratio
                     ),
                     seed=i,
+                    pair_count_K=pair_count_K,
+                    gamma_samples=gamma_samples,
                     dataset=dataset,
                     mode=mode,
                     test_k=synthetic_test_k,

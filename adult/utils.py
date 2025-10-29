@@ -203,6 +203,8 @@ def train_dp(
     mode="dp",
     test_k=1,
     high_impact_strategy="default",
+    pair_count_K=200,
+    gamma_samples=10,
 ):
     model.train()
 
@@ -218,7 +220,9 @@ def train_dp(
         strategy_suffix = (
             f"_{high_impact_strategy}" if high_impact_strategy != "default" else ""
         )
-        data_filepath = f"Adult/all_sample_data_seed{seed}_{mode}_{dataset}{suffix}{strategy_suffix}.pkl"
+        # 添加超参数后缀，与 fliprate.py 保持一致
+        hyperparam_suffix = f"_K{pair_count_K}_g{gamma_samples}"
+        data_filepath = f"Adult/all_sample_data_seed{seed}_{mode}_{dataset}{suffix}{strategy_suffix}{hyperparam_suffix}.pkl"
         high_impact_data = load_and_select_high_impact_samples(
             data_filepath, top_k=1000
         )
@@ -327,6 +331,8 @@ def train_eo(
     test_k=1,
     high_impact_strategy="default",
     verbose=False,
+    pair_count_K=200,
+    gamma_samples=10,
 ):
     model.train()
 
@@ -342,7 +348,9 @@ def train_eo(
         strategy_suffix = (
             f"_{high_impact_strategy}" if high_impact_strategy != "default" else ""
         )
-        data_filepath = f"Adult/all_sample_data_seed{seed}_{mode}_{dataset}{suffix}{strategy_suffix}.pkl"
+        # 添加超参数后缀，与 fliprate.py 保持一致
+        hyperparam_suffix = f"_K{pair_count_K}_g{gamma_samples}"
+        data_filepath = f"Adult/all_sample_data_seed{seed}_{mode}_{dataset}{suffix}{strategy_suffix}{hyperparam_suffix}.pkl"
         high_impact_data = load_and_select_high_impact_samples(
             data_filepath, top_k=1000
         )
@@ -353,7 +361,7 @@ def train_eo(
         if high_impact_data is not None:
             print(f"Using high impact samples with ratio {high_impact_ratio}")
         else:
-            print("High impact samples not found, using normal training")
+            print(f"High impact samples {data_filepath} not found, using normal training")
 
     for it in range(niter):
 
