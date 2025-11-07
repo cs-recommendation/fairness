@@ -660,18 +660,19 @@ def _run_single_experiment(
                 ap_test_epoch.append(ap_test)
                 gap_val_epoch.append(gap_val)
                 gap_test_epoch.append(gap_test)
-                gap_mean_val_epoch.append(gap_mean_val)
-                gap_mean_test_epoch.append(gap_mean_test)
                 if mode == "eo":
+                    gap_mean_val_epoch.append(gap_mean_val)
+                    gap_mean_test_epoch.append(gap_mean_test)
                     mf_test_epoch.append(mf_test)
 
         # best model based on validation performance
         idx = gap_val_epoch.index(min(gap_val_epoch))
         gap.append(gap_test_epoch[idx])
-        gap_mean.append(gap_mean_test_epoch[idx])
         ap.append(ap_test_epoch[idx])
-        if mode == "eo" and mf_test_epoch:
-            mf_results.append(mf_test_epoch[idx])
+        if mode == "eo":
+            gap_mean.append(gap_mean_test_epoch[idx])
+            if mf_test_epoch:
+                mf_results.append(mf_test_epoch[idx])
 
     ap_mean = float(np.mean(ap)) if ap else float("nan")
     gap_avg = float(np.mean(gap)) if gap else float("nan")
@@ -886,7 +887,7 @@ if __name__ == "__main__":
         help="多个训练方法列表，例如: --methods erm mixup GapReg",
     )
     parser.add_argument("--mode", default="eo", type=str, help="公平性模式: dp/eo")
-    parser.add_argument("--num_exp", default=10, type=int, help="实验重复次数，默认10次")
+    parser.add_argument("--num_exp", default=3, type=int, help="实验重复次数，默认10次")
     parser.add_argument(
         "--dataset",
         default=None,

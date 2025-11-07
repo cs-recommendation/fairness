@@ -80,12 +80,18 @@ def get_adult_data():
 
     train = pd.read_csv("adult/adult.data", header=None)
     test = pd.read_csv("adult/adult.test", header=None, skiprows=1)
+    #test = pd.read_csv("adult/shifted/adult_test_cond_dp0_1.csv", header=None, skiprows=1)
+    
+    #test = pd.read_csv("adult/shifted/adult_test_cond_dp0_2.csv", header=None, skiprows=1)
+    #test = pd.read_csv("adult/shifted/adult_test_cond_dn0_1.csv", header=None, skiprows=1)
+    #test = pd.read_csv("adult/shifted/adult_test_cond_dn0_2.csv", header=None, skiprows=1)
+
     df = pd.concat([train, test], ignore_index=True)
     df.columns = headers
 
     df["y"] = (
         df["y"]
-        .replace({" <=50K.": 0, " >50K.": 1, " >50K": 1, " <=50K": 0})
+        .replace({" <=50K.": 0, " >50K.": 1, " >50K": 1, " <=50K": 0, "<=50K": 0, ">50K": 1})
         .infer_objects(copy=False)
     )
 
