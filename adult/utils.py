@@ -196,44 +196,38 @@ def train_dp(
     lam,
     batch_size=500,
     niter=100,
-    use_high_impact=False,
+    high_impact_data=None,
     high_impact_ratio=0.04,
-    seed=0,
-    dataset="adult",
-    mode="dp",
-    test_k=1,
-    high_impact_strategy="default",
-    pair_count_K=200,
-    gamma_samples=10,
 ):
+    """
+    训练模型（DP模式）
+    
+    Args:
+        model: 神经网络模型
+        criterion: 损失函数
+        optimizer: 优化器
+        X_train, A_train, y_train: 训练数据
+        method: 训练方法
+        lam: 正则化系数
+        batch_size: 批次大小
+        niter: 迭代次数
+        high_impact_data: 高影响样本数据（如果为None则使用普通训练）
+        high_impact_ratio: 高影响样本比例
+    """
     model.train()
 
-    # 加载高影响样本数据
-    high_impact_data = None
+    # 检查是否使用高影响样本
+    use_high_impact = high_impact_data is not None
     if use_high_impact:
-        suffix = ""
-        if dataset == "synthetic":
-            k_value = float(test_k)
-            k_formatted = f"{k_value:.2f}"
-            k_formatted = k_formatted.rstrip("0").rstrip(".")
-            suffix = f"_k{k_formatted}"
-        strategy_suffix = (
-            f"_{high_impact_strategy}" if high_impact_strategy != "default" else ""
-        )
-        # 添加超参数后缀，与 fliprate.py 保持一致
-        hyperparam_suffix = f"_K{pair_count_K}_g{gamma_samples}"
-        data_filepath = f"Adult/all_sample_data_seed{seed}_{mode}_{dataset}{suffix}{strategy_suffix}{hyperparam_suffix}.pkl"
-        high_impact_data = load_and_select_high_impact_samples(
-            data_filepath, top_k=1000
-        )
-        # 预先校验维度是否与当前特征一致，否则忽略缓存数据
+        # 预先校验维度是否与当前特征一致，否则忽略
         high_impact_data = ensure_high_impact_feature_dim(
             high_impact_data, expected_dim=X_train.shape[1]
         )
         if high_impact_data is not None:
             print(f"Using high impact samples with ratio {high_impact_ratio}")
         else:
-            print("High impact samples not found, using normal training")
+            print("High impact samples dimension mismatch, using normal training")
+            use_high_impact = False
 
     for it in range(niter):
 
@@ -323,45 +317,40 @@ def train_eo(
     lam,
     batch_size=500,
     niter=100,
-    use_high_impact=False,
+    high_impact_data=None,
     high_impact_ratio=0.04,
-    seed=0,
-    dataset="adult",
-    mode="eo",
-    test_k=1,
-    high_impact_strategy="default",
     verbose=False,
-    pair_count_K=200,
-    gamma_samples=10,
 ):
+    """
+    训练模型（EO模式）
+    
+    Args:
+        model: 神经网络模型
+        criterion: 损失函数
+        optimizer: 优化器
+        X_train, A_train, y_train: 训练数据
+        method: 训练方法
+        lam: 正则化系数
+        batch_size: 批次大小
+        niter: 迭代次数
+        high_impact_data: 高影响样本数据（如果为None则使用普通训练）
+        high_impact_ratio: 高影响样本比例
+        verbose: 是否输出详细信息
+    """
     model.train()
 
-    # 加载高影响样本数据
-    high_impact_data = None
+    # 检查是否使用高影响样本
+    use_high_impact = high_impact_data is not None
     if use_high_impact:
-        suffix = ""
-        if dataset == "synthetic":
-            k_value = float(test_k)
-            k_formatted = f"{k_value:.2f}"
-            k_formatted = k_formatted.rstrip("0").rstrip(".")
-            suffix = f"_k{k_formatted}"
-        strategy_suffix = (
-            f"_{high_impact_strategy}" if high_impact_strategy != "default" else ""
-        )
-        # 添加超参数后缀，与 fliprate.py 保持一致
-        hyperparam_suffix = f"_K{pair_count_K}_g{gamma_samples}"
-        data_filepath = f"Adult/all_sample_data_seed{seed}_{mode}_{dataset}{suffix}{strategy_suffix}{hyperparam_suffix}.pkl"
-        high_impact_data = load_and_select_high_impact_samples(
-            data_filepath, top_k=1000
-        )
-        # 预先校验维度是否与当前特征一致，否则忽略缓存数据
+        # 预先校验维度是否与当前特征一致，否则忽略
         high_impact_data = ensure_high_impact_feature_dim(
             high_impact_data, expected_dim=X_train.shape[1]
         )
         if high_impact_data is not None:
             print(f"Using high impact samples with ratio {high_impact_ratio}")
         else:
-            print(f"High impact samples {data_filepath} not found, using normal training")
+            print("High impact samples dimension mismatch, using normal training")
+            use_high_impact = False
 
     for it in range(niter):
 

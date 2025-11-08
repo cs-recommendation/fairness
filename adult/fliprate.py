@@ -741,7 +741,7 @@ def preprocess_high_impact_samples(
     # 包含 K 和 gamma_samples 参数以避免不同超参组合共享缓存
     hyperparam_suffix = f"_K{K}_g{gamma_samples}"
 
-    data_filepath = f"Adult/all_sample_data_seed{seed}_{mode}_{dataset}{synthetic_suffix}{strategy_suffix}{hyperparam_suffix}.pkl"
+    data_filepath = f"tmp/fliprate_highimpact_sample/all_sample_data_seed{seed}_{mode}_{dataset}{synthetic_suffix}{strategy_suffix}{hyperparam_suffix}.pkl"
 
     # 检查是否已经存在计算结果
     if not force_recompute:

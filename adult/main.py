@@ -89,6 +89,41 @@ def get_search_space(df, method):
     return search_space
 
 
+def generate_random_search_configs(
+    search_space, default_params, n_samples=20, random_seed=None
+):
+    """
+    生成随机搜索的超参数配置列表
+    
+    Args:
+        search_space: 搜索空间字典，key为参数名，value为可选值列表
+        default_params: 默认参数字典
+        n_samples: 随机采样的配置数量
+        random_seed: 随机种子
+        
+    Returns:
+        config_list: 随机生成的配置列表
+    """
+    if random_seed is not None:
+        np.random.seed(random_seed)
+    
+    config_list = []
+    keys = list(search_space.keys())
+    
+    for _ in range(n_samples):
+        hp_conf = deepcopy(default_params)
+        for key in keys:
+            # 从每个参数的搜索空间中随机选择一个值
+            value = np.random.choice(search_space[key])
+            # 转换numpy类型为Python原生类型，以便JSON序列化
+            if hasattr(value, 'item'):
+                value = value.item()
+            hp_conf[key] = value
+        config_list.append(hp_conf)
+    
+    return config_list
+
+
 def _parse_dataset_spec(dataset_option):
     """
     解析数据集选项，支持以下格式：
@@ -204,6 +239,9 @@ def run_experiments(
     search_hp=False,
     hp_selection_metric="gap",
     hp_config_df=None,
+    hp_search_method="random",
+    hp_random_samples=20,
+    hp_random_seed=None,
 ):
     """
     对模型进行 num_exp 次重复实验并返回性能统计
@@ -216,8 +254,14 @@ def run_experiments(
         pre_process: 预处理方法
         model_arch: 模型架构
         search_hp: 是否进行超参数搜索
-        hp_selection_metric: 超参选择指标
+        hp_selection_metric: 超参选择指标 (gap/ap)
         hp_config_df: 超参数配置表 DataFrame
+        hp_search_method: 超参数搜索方法 ("random"或"grid")，默认"random"
+        hp_random_samples: 随机搜索时的采样数量，默认20
+        hp_random_seed: 随机搜索的随机种子，默认None
+    
+    Returns:
+        dict: 包含所有配置的实验结果、最佳结果和最佳超参数
     """
 
     dataset, dataset_params = _parse_dataset_spec(dataset_spec)
@@ -246,16 +290,33 @@ def run_experiments(
         if not search_space:
             # 如果没有搜索空间，使用默认配置
             config_list = [default_params]
+            print(f"未找到 {method} 的搜索空间，使用默认配置")
         else:
-            # 生成所有参数组合
-            config_list = []
-            keys = list(search_space.keys())
-            values_product = itertools.product(*(search_space[k] for k in keys))
-            for values in values_product:
-                hp_conf = deepcopy(default_params)
-                for key, value in zip(keys, values):
-                    hp_conf[key] = value
-                config_list.append(hp_conf)
+            # 根据搜索方法生成配置列表
+            if hp_search_method == "grid":
+                # 网格搜索：生成所有参数组合
+                print(f"使用网格搜索方法生成超参数配置...")
+                config_list = []
+                keys = list(search_space.keys())
+                values_product = itertools.product(*(search_space[k] for k in keys))
+                for values in values_product:
+                    hp_conf = deepcopy(default_params)
+                    for key, value in zip(keys, values):
+                        hp_conf[key] = value
+                    config_list.append(hp_conf)
+                print(f"网格搜索生成了 {len(config_list)} 个配置")
+            elif hp_search_method == "random":
+                # 随机搜索：随机采样配置
+                print(f"使用随机搜索方法生成超参数配置...")
+                config_list = generate_random_search_configs(
+                    search_space, 
+                    default_params, 
+                    n_samples=hp_random_samples,
+                    random_seed=hp_random_seed
+                )
+                print(f"随机搜索生成了 {len(config_list)} 个配置")
+            else:
+                raise ValueError(f"不支持的超参数搜索方法: {hp_search_method}. 请使用 'grid' 或 'random'")
     else:
         # 不搜索，只使用默认配置
         config_list = [default_params]
@@ -293,7 +354,13 @@ def run_experiments(
             # ap: 越大越好（最大化准确率）
             if hp_selection_metric == "gap":
                 metric_value = summary.get("gap_mean")
+                ap_value = summary.get("ap_mean")
                 compare_value = metric_value  # 越小越好
+                
+                # 当以gap为目标时，要求准确率ap至少0.75以上
+                if ap_value is None or ap_value < 0.75:
+                    print(f"  跳过配置 ")
+                    continue
             else:  # hp_selection_metric == "ap"
                 metric_value = summary.get("ap_mean")
                 compare_value = -metric_value  # 转负数，越大越好变成越小越好
@@ -321,6 +388,8 @@ def run_experiments(
         print(
             f"选择指标: {hp_selection_metric} ({'最小化' if hp_selection_metric == 'gap' else '最大化'})"
         )
+        if hp_selection_metric == "gap":
+            print(f"筛选条件: AP ≥ 0.5")
         print("-" * 80)
         print("最佳超参数:")
         for key, value in sorted(best_hp.items()):
@@ -333,6 +402,14 @@ def run_experiments(
         print(
             f"  Gap: {best_result.get('gap_mean'):.4f} ± {best_result.get('gap_std', 0):.4f}"
         )
+        print("=" * 80 + "\n")
+    else:
+        print("\n" + "=" * 80)
+        print("警告: 未找到满足条件的超参数组合")
+        print("=" * 80)
+        if hp_selection_metric == "gap":
+            print("所有配置的AP均低于0.5的阈值要求")
+            print("建议: 尝试调整搜索空间或降低AP阈值")
         print("=" * 80 + "\n")
 
     return {
@@ -362,6 +439,8 @@ def _summarize_hp_search(results, metric):
     print()
     print(f"预处理: {best.get('pre_process') if best.get('pre_process') else '无'}")
     print(f"选择指标: {metric} ({'最小化' if metric == 'gap' else '最大化'})")
+    if metric == "gap":
+        print(f"筛选条件: AP ≥ 0.5")
     print("-" * 80)
     print("最佳超参数配置:")
     for key, value in sorted(best_hp.items()):
@@ -577,6 +656,33 @@ def _run_single_experiment(
                 random_state=i,
             )
 
+        # 加载高影响样本数据（如果使用fliprate方法）
+        high_impact_data_for_training = None
+        if use_high_impact:
+            from fliprate import load_and_select_high_impact_samples
+            
+            # 构建数据文件路径
+            suffix = ""
+            if dataset == "synthetic":
+                k_value = float(synthetic_test_k)
+                k_formatted = f"{k_value:.2f}"
+                k_formatted = k_formatted.rstrip("0").rstrip(".")
+                suffix = f"_k{k_formatted}"
+            strategy_suffix = (
+                f"_{'fairshift' if apply_fairshift else 'default'}"
+                if apply_fairshift
+                else ""
+            )
+            hyperparam_suffix = f"_K{pair_count_K}_g{gamma_samples}"
+            data_filepath = f"tmp/fliprate_highimpact_sample/all_sample_data_seed{i}_{mode}_{dataset}{suffix}{strategy_suffix}{hyperparam_suffix}.pkl"
+            
+            # 加载数据
+            high_impact_data_for_training = load_and_select_high_impact_samples(
+                data_filepath, top_k=1000
+            )
+            if high_impact_data_for_training is None:
+                print(f"Warning: High impact data file {data_filepath} not found")
+        
         # initialize model
         model = build_model(model_arch, input_size=len(X_train[0])).cuda()
         optimizer = optim.Adam(model.parameters(), lr=optimizer_lr)
@@ -610,17 +716,10 @@ def _run_single_experiment(
                     lam,
                     batch_size=training_params.get("batch_size"),
                     niter=training_params.get("niter"),
-                    use_high_impact=use_high_impact,
+                    high_impact_data=high_impact_data_for_training,
                     high_impact_ratio=training_params.get(
                         "high_impact_ratio", high_impact_ratio
                     ),
-                    seed=i,
-                    dataset=dataset,
-                    mode=mode,
-                    test_k=synthetic_test_k,
-                    high_impact_strategy="fairshift" if apply_fairshift else "default",
-                    pair_count_K=pair_count_K,
-                    gamma_samples=gamma_samples,
                 )
                 ap_val, gap_val = evaluate_dp(model, X_val, y_val, A_val)
                 ap_test, gap_test = evaluate_dp(model, X_test, y_test, A_test)
@@ -636,17 +735,10 @@ def _run_single_experiment(
                     lam,
                     batch_size=training_params.get("batch_size"),
                     niter=training_params.get("niter"),
-                    use_high_impact=use_high_impact,
+                    high_impact_data=high_impact_data_for_training,
                     high_impact_ratio=training_params.get(
                         "high_impact_ratio", high_impact_ratio
                     ),
-                    seed=i,
-                    pair_count_K=pair_count_K,
-                    gamma_samples=gamma_samples,
-                    dataset=dataset,
-                    mode=mode,
-                    test_k=synthetic_test_k,
-                    high_impact_strategy="fairshift" if apply_fairshift else "default",
                 )
                 ap_val, gap_val, mf_val, gap_mean_val = evaluate_eo(
                     model, X_val, y_val, A_val
@@ -749,8 +841,30 @@ def run_full_sweep(
     search_hp=False,
     hp_selection_metric="gap",
     datasets_list=None,
+    hp_search_method="random",
+    hp_random_samples=20,
+    hp_random_seed=None,
 ):
-    """批量运行所有方法与测试集组合，并保存结果"""
+    """
+    批量运行所有方法与测试集组合，并保存结果
+    
+    Args:
+        mode: 公平性模式 (dp/eo)
+        num_exp: 实验重复次数
+        methods: 训练方法列表
+        synthetic_test_k_list: synthetic数据集的k值列表
+        pre_process_list: 预处理方法列表
+        output_csv: 输出CSV文件路径
+        search_hp: 是否进行超参数搜索
+        hp_selection_metric: 超参选择指标 (gap/ap)
+        datasets_list: 数据集列表
+        hp_search_method: 超参数搜索方法 ("random"或"grid")，默认"random"
+        hp_random_samples: 随机搜索时的采样数量，默认20
+        hp_random_seed: 随机搜索的随机种子，默认None
+    
+    Returns:
+        DataFrame: 包含所有实验结果的数据框
+    """
 
     if methods is None:
         methods = ["erm", "mixup", "GapReg", "fliprate", "adversarial", "reweight"]
@@ -780,6 +894,10 @@ def run_full_sweep(
                 print(f"数据集: {dataset_spec}")
                 print(f"预处理: {display_preprocess}")
                 print(f"超参数搜索: {'是' if search_hp else '否'}")
+                if search_hp:
+                    print(f"搜索方法: {hp_search_method}")
+                    if hp_search_method == "random":
+                        print(f"随机采样数: {hp_random_samples}")
                 print(f"选择指标: {hp_selection_metric}")
                 print("#" * 80 + "\n")
                 experiment_summary = run_experiments(
@@ -792,6 +910,9 @@ def run_full_sweep(
                     search_hp=search_hp,
                     hp_selection_metric=hp_selection_metric,
                     hp_config_df=hp_config_df,
+                    hp_search_method=hp_search_method,
+                    hp_random_samples=hp_random_samples,
+                    hp_random_seed=hp_random_seed,
                 )
 
                 best_result = experiment_summary.get("best_result")
@@ -933,6 +1054,24 @@ if __name__ == "__main__":
         help="超参搜索目标指标: gap(最小化)/ap(最大化)",
     )
     parser.add_argument(
+        "--hp_search_method",
+        default="random",
+        choices=["random", "grid"],
+        help="超参数搜索方法: random(随机搜索，默认)/grid(网格搜索)",
+    )
+    parser.add_argument(
+        "--hp_random_samples",
+        default=20,
+        type=int,
+        help="随机搜索时采样的配置数量，默认20",
+    )
+    parser.add_argument(
+        "--hp_random_seed",
+        default=None,
+        type=int,
+        help="随机搜索的随机种子，默认None（不固定种子）",
+    )
+    parser.add_argument(
         "--output_csv",
         default=None,
         type=str,
@@ -981,6 +1120,10 @@ if __name__ == "__main__":
         print(f"数据集列表: {datasets_list}")
         print(f"预处理列表: {preprocess_list}")
         print(f"超参数搜索: {'是' if args.search_hp else '否'}")
+        if args.search_hp:
+            print(f"搜索方法: {args.hp_search_method}")
+            if args.hp_search_method == "random":
+                print(f"随机采样数: {args.hp_random_samples}")
         print("=" * 80 + "\n")
 
         run_full_sweep(
@@ -993,6 +1136,9 @@ if __name__ == "__main__":
             search_hp=args.search_hp,
             hp_selection_metric=args.hp_selection_metric,
             datasets_list=datasets_list,
+            hp_search_method=args.hp_search_method,
+            hp_random_samples=args.hp_random_samples,
+            hp_random_seed=args.hp_random_seed,
         )
     else:
         # 单次运行模式
@@ -1003,6 +1149,10 @@ if __name__ == "__main__":
         print(f"数据集: {datasets_list[0]}")
         print(f"预处理: {preprocess_list[0] if preprocess_list[0] else '无'}")
         print(f"超参数搜索: {'是' if args.search_hp else '否'}")
+        if args.search_hp:
+            print(f"搜索方法: {args.hp_search_method}")
+            if args.hp_search_method == "random":
+                print(f"随机采样数: {args.hp_random_samples}")
         print("=" * 80 + "\n")
 
         experiment_summary = run_experiments(
@@ -1014,6 +1164,9 @@ if __name__ == "__main__":
             model_arch=args.model_arch,
             search_hp=args.search_hp,
             hp_selection_metric=args.hp_selection_metric,
+            hp_search_method=args.hp_search_method,
+            hp_random_samples=args.hp_random_samples,
+            hp_random_seed=args.hp_random_seed,
         )
         _summarize_hp_search(experiment_summary, args.hp_selection_metric)
         
