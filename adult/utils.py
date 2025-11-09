@@ -153,6 +153,11 @@ def sample_batch_sen_idx_y_with_high_impact(
     high_impact_A = high_impact_data["A"]
     high_impact_indices = np.where(high_impact_A == s)[0]
 
+    # 检查是否有该敏感属性的高影响样本
+    if len(high_impact_indices) == 0:
+        print(f"[warn] No high-impact samples for sensitive attribute {s}; fallback to normal sampling.")
+        return sample_batch_sen_idx_y(X, A, y, batch_size, s)
+    
     if len(high_impact_indices) >= high_impact_size * 2:  # 为每个标签采样
         selected_high_impact_idx = np.random.choice(
             high_impact_indices, size=high_impact_size * 2, replace=False

@@ -53,121 +53,99 @@ def DataQuantize(X, bin_edges=None, num_bins=10):
     return np.concatenate(X_, 1), bin_edges
 
 
-def get_adult_data():
-    """
-    We borrow the code from https://github.com/IBM/sensitive-subspace-robustness
-    Preprocess the adult data set by removing some features and put adult data into a BinaryLabelDataset
-    You need to download the adult dataset (both the adult.data and adult.test files) from https://archive.ics.uci.edu/ml/datasets/Adult
-    """
-
-    headers = [
-        "age",
-        "workclass",
-        "fnlwgt",
-        "education",
-        "education-num",
-        "marital-stataus",
-        "occupation",
-        "relationship",
-        "race",
-        "sex",
-        "capital-gain",
-        "capital-loss",
-        "hours-per-week",
-        "native-country",
-        "y",
+def _get_columns_to_delete():
+    """获取需要删除的列名列表"""
+    delete_these = ["race_ Amer-Indian-Eskimo", "race_ Asian-Pac-Islander", "race_ Black", "race_ Other", "sex_ Female"]
+    delete_these += [
+        "native-country_ Cambodia", "native-country_ Canada", "native-country_ China", "native-country_ Columbia",
+        "native-country_ Cuba", "native-country_ Dominican-Republic", "native-country_ Ecuador", "native-country_ El-Salvador",
+        "native-country_ England", "native-country_ France", "native-country_ Germany", "native-country_ Greece",
+        "native-country_ Guatemala", "native-country_ Haiti", "native-country_ Holand-Netherlands", "native-country_ Honduras",
+        "native-country_ Hong", "native-country_ Hungary", "native-country_ India", "native-country_ Iran",
+        "native-country_ Ireland", "native-country_ Italy", "native-country_ Jamaica", "native-country_ Japan",
+        "native-country_ Laos", "native-country_ Mexico", "native-country_ Nicaragua", "native-country_ Outlying-US(Guam-USVI-etc)",
+        "native-country_ Peru", "native-country_ Philippines", "native-country_ Poland", "native-country_ Portugal",
+        "native-country_ Puerto-Rico", "native-country_ Scotland", "native-country_ South", "native-country_ Taiwan",
+        "native-country_ Thailand", "native-country_ Trinadad&Tobago", "native-country_ United-States", "native-country_ Vietnam",
+        "native-country_ Yugoslavia", "fnlwgt", "education"
     ]
+    return delete_these
 
-    train = pd.read_csv("adult/adult.data", header=None)
-    test = pd.read_csv("adult/adult.test", header=None, skiprows=1)
-    #test = pd.read_csv("adult/shifted/adult_test_cond_dp0_1.csv", header=None, skiprows=1)
+
+def _process_adult_dataframe(df, headers):
+    """处理adult数据框：标签转换、删除缺失值、one-hot编码、删除指定列"""
+    # 处理标签（统一处理所有可能的格式）
+    df["y"] = df["y"].replace({
+        " <=50K.": 0, " >50K.": 1, " >50K": 1, " <=50K": 0, "<=50K": 0, ">50K": 1
+    }).infer_objects(copy=False)
     
-    #test = pd.read_csv("adult/shifted/adult_test_cond_dp0_2.csv", header=None, skiprows=1)
+    # 删除缺失值
+    df = df.drop(df[(df[headers[-2]] == " ?") | (df[headers[6]] == " ?")].index)
+    
+    # one-hot编码
+    df = pd.get_dummies(df, columns=[headers[1], headers[5], headers[6], headers[7], headers[9], headers[8], "native-country"])
+    
+    # 删除指定列
+    df.drop(_get_columns_to_delete(), axis=1, inplace=True)
+    
+    return df
+
+
+def get_adult_data(return_separate=True, test_file="adult/adult.test"):
+    """
+    预处理adult数据集
+    
+    Args:
+        return_separate: 如果为True，返回分开的训练集和测试集；如果为False，合并后返回
+        test_file: 测试集文件路径
+        
+    Returns:
+        如果return_separate=False: 返回合并的BinaryLabelDataset
+        如果return_separate=True: 返回(train_dataset, test_dataset)元组
+    """
+    headers = ["age", "workclass", "fnlwgt", "education", "education-num", "marital-stataus",
+               "occupation", "relationship", "race", "sex", "capital-gain", "capital-loss",
+               "hours-per-week", "native-country", "y"]
+
+    # 读取数据
+    train = pd.read_csv("adult/adult.data", header=None)
+    #test = pd.read_csv("adult/adult.test", header=None, skiprows=1)
+    #test = pd.read_csv("adult/shifted/test.csv", header=None, skiprows=1)
+    #test = pd.read_csv("adult/shifted/adult_test_cond_dp0.csv", header=None, skiprows=1)
+    #test = pd.read_csv("adult/shifted/adult_test_cond_dp0_1.csv", header=None, skiprows=1)
+    test = pd.read_csv("adult/shifted/adult_test_cond_dp0_2.csv", header=None, skiprows=1)
     #test = pd.read_csv("adult/shifted/adult_test_cond_dn0_1.csv", header=None, skiprows=1)
     #test = pd.read_csv("adult/shifted/adult_test_cond_dn0_2.csv", header=None, skiprows=1)
 
+    
+    # 设置列名
+    train.columns = headers
+    test.columns = headers
+    
+    # 合并数据（用于one-hot编码保持维度一致）
     df = pd.concat([train, test], ignore_index=True)
-    df.columns = headers
-
-    df["y"] = (
-        df["y"]
-        .replace({" <=50K.": 0, " >50K.": 1, " >50K": 1, " <=50K": 0, "<=50K": 0, ">50K": 1})
-        .infer_objects(copy=False)
-    )
-
-    df = df.drop(df[(df[headers[-2]] == " ?") | (df[headers[6]] == " ?")].index)
-    df = pd.get_dummies(
-        df,
-        columns=[
-            headers[1],
-            headers[5],
-            headers[6],
-            headers[7],
-            headers[9],
-            headers[8],
-            "native-country",
-        ],
-    )
-
-    delete_these = [
-        "race_ Amer-Indian-Eskimo",
-        "race_ Asian-Pac-Islander",
-        "race_ Black",
-        "race_ Other",
-        "sex_ Female",
-    ]
-
-    delete_these += [
-        "native-country_ Cambodia",
-        "native-country_ Canada",
-        "native-country_ China",
-        "native-country_ Columbia",
-        "native-country_ Cuba",
-        "native-country_ Dominican-Republic",
-        "native-country_ Ecuador",
-        "native-country_ El-Salvador",
-        "native-country_ England",
-        "native-country_ France",
-        "native-country_ Germany",
-        "native-country_ Greece",
-        "native-country_ Guatemala",
-        "native-country_ Haiti",
-        "native-country_ Holand-Netherlands",
-        "native-country_ Honduras",
-        "native-country_ Hong",
-        "native-country_ Hungary",
-        "native-country_ India",
-        "native-country_ Iran",
-        "native-country_ Ireland",
-        "native-country_ Italy",
-        "native-country_ Jamaica",
-        "native-country_ Japan",
-        "native-country_ Laos",
-        "native-country_ Mexico",
-        "native-country_ Nicaragua",
-        "native-country_ Outlying-US(Guam-USVI-etc)",
-        "native-country_ Peru",
-        "native-country_ Philippines",
-        "native-country_ Poland",
-        "native-country_ Portugal",
-        "native-country_ Puerto-Rico",
-        "native-country_ Scotland",
-        "native-country_ South",
-        "native-country_ Taiwan",
-        "native-country_ Thailand",
-        "native-country_ Trinadad&Tobago",
-        "native-country_ United-States",
-        "native-country_ Vietnam",
-        "native-country_ Yugoslavia",
-    ]
-
-    delete_these += ["fnlwgt", "education"]
-
-    df.drop(delete_these, axis=1, inplace=True)
-
-    return BinaryLabelDataset(
-        df=df, label_names=["y"], protected_attribute_names=["sex_ Male", "race_ White"]
-    )
+    
+    # 统一处理
+    df = _process_adult_dataframe(df, headers)
+    
+    if return_separate:
+        # 分割回训练集和测试集
+        df_train = df.iloc[:len(train)]
+        df_test = df.iloc[len(train):]
+        
+        train_dataset = BinaryLabelDataset(
+            df=df_train, label_names=["y"], protected_attribute_names=["sex_ Male", "race_ White"]
+        )
+        test_dataset = BinaryLabelDataset(
+            df=df_test, label_names=["y"], protected_attribute_names=["sex_ Male", "race_ White"]
+        )
+        
+        return train_dataset, test_dataset
+    else:
+        # 返回合并的数据集
+        return BinaryLabelDataset(
+            df=df, label_names=["y"], protected_attribute_names=["sex_ Male", "race_ White"]
+        )
 
 
 def DataQuantizeInterpolation(X, bin_edges=None, num_bins=10):
@@ -274,56 +252,91 @@ def preprocess_interpolation_data(seed=0, use_embedding=False, num_bins=10):
     return X_train, X_val, X_test, y_train, y_val, y_test, A_train, A_val, A_test
 
 
-def preprocess_adult_data(seed=0):
+def _standardize_continuous_features(dataset_train, dataset_test, continous_features):
+    """标准化连续特征"""
+    continous_features_indices = [dataset_train.feature_names.index(feat) for feat in continous_features]
+    SS = StandardScaler().fit(dataset_train.features[:, continous_features_indices])
+    dataset_train.features[:, continous_features_indices] = SS.transform(dataset_train.features[:, continous_features_indices])
+    dataset_test.features[:, continous_features_indices] = SS.transform(dataset_test.features[:, continous_features_indices])
+
+
+def preprocess_adult_data(seed=0, use_original_split=True, test_file="adult/adult.test"):
     """
-    Description: Ths code (1) standardizes the continuous features, (2) one hot encodes the categorical features, (3) splits into a train (80%) and test set (20%), (4) based on this data, create another copy where gender is deleted as a predictive feature and the feature we predict is gender (used by SenSR when learning the sensitive directions)
-    Input: seed: the seed used to split data into train/test
+    处理Adult数据集
+    
+    Args:
+        seed: 随机种子
+        use_original_split: 如果为True，使用原始文件指定的训练集和测试集，不进行重新分割
+        test_file: 测试集文件路径
+        
+    Returns:
+        X_train, X_val, X_test, y_train, y_val, y_test, A_train, A_val, A_test
     """
-    # Get the dataset and split into train and test
-    dataset_orig = get_adult_data()
-
-    # we will standardize continous features
-    continous_features = [
-        "age",
-        "education-num",
-        "capital-gain",
-        "capital-loss",
-        "hours-per-week",
-    ]
-    continous_features_indices = [
-        dataset_orig.feature_names.index(feat) for feat in continous_features
-    ]
-
-    # get a 80%/20% train/test split
-    dataset_orig_train, dataset_orig_test = dataset_orig.split(
-        [0.8], shuffle=True, seed=seed
-    )
-    SS = StandardScaler().fit(
-        dataset_orig_train.features[:, continous_features_indices]
-    )
-    dataset_orig_train.features[:, continous_features_indices] = SS.transform(
-        dataset_orig_train.features[:, continous_features_indices]
-    )
-    dataset_orig_test.features[:, continous_features_indices] = SS.transform(
-        dataset_orig_test.features[:, continous_features_indices]
-    )
-
-    X_train = dataset_orig_train.features
-    X_test = dataset_orig_test.features
-
-    y_train = dataset_orig_train.labels.ravel()  # 确保标签是一维的
-    y_test = dataset_orig_test.labels.ravel()  # 确保标签是一维的
-
-    X_val = X_train[: len(X_test)]
-    y_val = y_train[: len(X_test)]
-    X_train = X_train[len(X_test) :]
-    y_train = y_train[len(X_test) :]
-
-    # gender id = 39
-    A_train = X_train[:, 39]
-    A_val = X_val[:, 39]
-    A_test = X_test[:, 39]
-
+    continous_features = ["age", "education-num", "capital-gain", "capital-loss", "hours-per-week"]
+    
+    if use_original_split:
+        print(f"✓ 使用原始分割模式：训练集=adult/adult.data, 测试集={test_file}")
+        dataset_orig_train, dataset_orig_test = get_adult_data(return_separate=True, test_file=test_file)
+        
+        # 标准化连续特征
+        _standardize_continuous_features(dataset_orig_train, dataset_orig_test, continous_features)
+        
+        # 动态查找sex_Male列的索引
+        if "sex_ Male" in dataset_orig_train.feature_names:
+            sex_male_idx = dataset_orig_train.feature_names.index("sex_ Male")
+        else:
+            raise ValueError("未找到 'sex_ Male' 列，无法提取敏感属性")
+        
+        # 提取敏感属性（在量化前）
+        X_train_full = dataset_orig_train.features
+        y_train_full = dataset_orig_train.labels.ravel()
+        A_train_full = X_train_full[:, sex_male_idx]
+        
+        X_test = dataset_orig_test.features
+        y_test = dataset_orig_test.labels.ravel()
+        A_test = X_test[:, sex_male_idx]
+        
+        # 从训练集中分出验证集
+        np.random.seed(seed)
+        val_size = min(len(X_test), len(X_train_full) // 5)
+        val_indices = np.random.choice(len(X_train_full), val_size, replace=False)
+        train_indices = np.setdiff1d(np.arange(len(X_train_full)), val_indices)
+        
+        X_train, y_train, A_train = X_train_full[train_indices], y_train_full[train_indices], A_train_full[train_indices]
+        X_val, y_val, A_val = X_train_full[val_indices], y_train_full[val_indices], A_train_full[val_indices]
+    else:
+        print("✓ 使用合并重分割模式（默认）")
+        dataset_orig = get_adult_data(return_separate=False, test_file=test_file)
+        
+        # 80/20 分割
+        dataset_orig_train, dataset_orig_test = dataset_orig.split([0.8], shuffle=True, seed=seed)
+        
+        # 标准化连续特征
+        _standardize_continuous_features(dataset_orig_train, dataset_orig_test, continous_features)
+        
+        # 动态查找sex_Male列的索引
+        if "sex_ Male" in dataset_orig_train.feature_names:
+            sex_male_idx = dataset_orig_train.feature_names.index("sex_ Male")
+        else:
+            raise ValueError("未找到 'sex_ Male' 列，无法提取敏感属性")
+        
+        # 从训练集前部分分出验证集
+        X_train = dataset_orig_train.features
+        y_train = dataset_orig_train.labels.ravel()
+        A_train = X_train[:, sex_male_idx]
+        
+        X_test = dataset_orig_test.features
+        y_test = dataset_orig_test.labels.ravel()
+        A_test = X_test[:, sex_male_idx]
+        
+        X_val, y_val, A_val = X_train[:len(X_test)], y_train[:len(X_test)], A_train[:len(X_test)]
+        X_train, y_train, A_train = X_train[len(X_test):], y_train[len(X_test):], A_train[len(X_test):]
+    
+    print(f"  训练集: {len(X_train)} 样本, 验证集: {len(X_val)} 样本, 测试集: {len(X_test)} 样本")
+    print(f"  敏感属性列: 'sex_ Male' (索引: {sex_male_idx})")
+    print(f"  测试集敏感属性分布: A=0(Female)={sum(A_test==0)}, A=1(Male)={sum(A_test==1)}")
+    
+    # 量化处理（注意：敏感属性已经在量化前提取）
     X_train, bin_edges = DataQuantize(X_train)
     X_val, _ = DataQuantize(X_val, bin_edges)
     X_test, _ = DataQuantize(X_test, bin_edges)
